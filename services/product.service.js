@@ -1,7 +1,9 @@
 const pool = require("../db");
 
+// Service xu ly truy van database va business logic cua products
 async function findAll(keyword) {
   if (keyword) {
+    // Prepared statement giup truyen tham so an toan hon khi query database
     const [rows] = await pool.query(
       "SELECT * FROM products WHERE name LIKE ?",
       [`%${keyword}%`],
@@ -25,31 +27,37 @@ async function findById(id) {
 }
 
 async function create(data) {
-  const { name, price, stock, description } = data;
+  const { name, price, stock = 0, description = null } = data;
 
   const [result] = await pool.query(
     "INSERT INTO products (name, price, stock, description) VALUES (?, ?, ?, ?)",
-    [name, price, stock || 0, description || null],
+    [name, price, stock, description],
   );
 
   return {
     id: result.insertId,
     name,
     price,
-    stock: stock || 0,
-    description: description || null,
+    stock,
+    description,
   };
 }
 
 async function update(id, data) {
-  const { name, price, stock, description } = data;
+  const oldProduct = await findById(id);
 
-  const [result] = await pool.query(
+  if (!oldProduct) {
+    return null;
+  }
+
+  const { name, price, stock, description = null } = data;
+
+  await pool.query(
     "UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?",
-    [name, price, stock, description || null, id],
+    [name, price, stock, description, id],
   );
 
-  return result.affectedRows > 0;
+  return findById(id);
 }
 
 async function partialUpdate(id, data) {
@@ -59,30 +67,32 @@ async function partialUpdate(id, data) {
     return null;
   }
 
-  const { name, price, stock, description } = data;
-
-  const newName = name !== undefined ? name : oldProduct.name;
-  const newPrice = price !== undefined ? price : oldProduct.price;
-  const newStock = stock !== undefined ? stock : oldProduct.stock;
-  const newDescription =
-    description !== undefined ? description : oldProduct.description;
+  // Merge field moi voi product cu de PATCH co the gui thieu field
+  const newProduct = {
+    name: data.name !== undefined ? data.name : oldProduct.name,
+    price: data.price !== undefined ? data.price : oldProduct.price,
+    stock: data.stock !== undefined ? data.stock : oldProduct.stock,
+    description:
+      data.description !== undefined ? data.description : oldProduct.description,
+  };
 
   await pool.query(
     "UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?",
-    [newName, newPrice, newStock, newDescription, id],
+    [
+      newProduct.name,
+      newProduct.price,
+      newProduct.stock,
+      newProduct.description,
+      id,
+    ],
   );
 
-  return {
-    id: Number(id),
-    name: newName,
-    price: newPrice,
-    stock: newStock,
-    description: newDescription,
-  };
+  return findById(id);
 }
 
 async function remove(id) {
-  const [result] = await pool.query("DELETE FROM products WHERE id = ?", f[id]);
+  // Xoa product bang prepared statement: id duoc truyen trong mang params
+  const [result] = await pool.query("DELETE FROM products WHERE id = ?", [id]);
 
   return result.affectedRows > 0;
 }
