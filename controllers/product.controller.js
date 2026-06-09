@@ -1,56 +1,39 @@
-const pool = require('../db');
+const pool = require("../db");
+const productService = require("../services/product.service");
 
 async function index(req, res) {
   const keyword = req.query.keyword;
-
-  if (keyword) {
-    const [rows] = await pool.query(
-      'SELECT * FROM products WHERE name LIKE ?',
-      [`%${keyword}%`]
-    );
-
-    return res.json(rows);
-  }
-
-  const [rows] = await pool.query('SELECT * FROM products');
-
-  res.json(rows);
+  const products = await productService.findAll(keyword);
+  res.json(products);
 }
 
 async function show(req, res) {
   const id = req.params.id;
 
-  const [rows] = await pool.query(
-    'SELECT * FROM products WHERE id = ?',
-    [id]
-  );
+  const product = await productService.findById(id);
 
-  if (rows.length === 0) {
+  if (!product) {
     return res.status(404).json({
-      message: 'Product not found',
+      message: "Product not found",
     });
   }
 
-  res.json(rows[0]);
+  return res.json(product);
 }
 
 async function store(req, res) {
-  const { name, price, stock, description } = req.body;
+  const { name, price } = req.body;
 
   if (!name || !price) {
     return res.status(400).json({
-      message: 'Name and price are required',
+      message: "Name and price are required",
     });
   }
 
-  const [result] = await pool.query(
-    'INSERT INTO products (name, price, stock, description) VALUES (?, ?, ?, ?)',
-    [name, price, stock || 0, description || null]
-  );
-
+  const product = await productService.create(req.body);
   res.status(201).json({
-    message: 'Product created successfully',
-    id: result.insertId,
+    message: "Product created successfully",
+    product,
   });
 }
 
@@ -60,23 +43,20 @@ async function update(req, res) {
 
   if (!name || !price || stock === undefined) {
     return res.status(400).json({
-      message: 'Name, price and stock are required',
+      message: "Name, price and stock are required",
     });
   }
 
-  const [result] = await pool.query(
-    'UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?',
-    [name, price, stock, description || null, id]
-  );
+  const isUpdated = await productService.update(id, req.body);
 
-  if (result.affectedRows === 0) {
+  if (!isUpdated) {
     return res.status(404).json({
-      message: 'Product not found',
+      message: "Product not found",
     });
   }
 
   res.json({
-    message: 'Product updated successfully',
+    message: "Product updated successfully",
   });
 }
 
@@ -84,14 +64,11 @@ async function patch(req, res) {
   const id = req.params.id;
   const { name, price, stock, description } = req.body;
 
-  const [rows] = await pool.query(
-    'SELECT * FROM products WHERE id = ?',
-    [id]
-  );
+  const [rows] = await pool.query("SELECT * FROM products WHERE id = ?", [id]);
 
   if (rows.length === 0) {
     return res.status(404).json({
-      message: 'Product not found',
+      message: "Product not found",
     });
   }
 
@@ -104,31 +81,26 @@ async function patch(req, res) {
     description !== undefined ? description : oldProduct.description;
 
   await pool.query(
-    'UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?',
-    [newName, newPrice, newStock, newDescription, id]
+    "UPDATE products SET name = ?, price = ?, stock = ?, description = ? WHERE id = ?",
+    [newName, newPrice, newStock, newDescription, id],
   );
 
   res.json({
-    message: 'Product updated partially successfully',
+    message: "Product updated partially successfully",
   });
 }
 
 async function destroy(req, res) {
   const id = req.params.id;
-
-  const [result] = await pool.query(
-    'DELETE FROM products WHERE id = ?',
-    [id]
-  );
-
-  if (result.affectedRows === 0) {
+  const isDeleted = await productService.remove(id);
+  if (!isDeleted) {
     return res.status(404).json({
-      message: 'Product not found',
+      message: "Product not found",
     });
   }
 
   res.json({
-    message: 'Product deleted successfully',
+    message: "Product deleted successfully",
     deletedId: Number(id),
   });
 }
