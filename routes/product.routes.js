@@ -1,6 +1,7 @@
 const express = require("express");
 const productController = require("../controllers/product.controller");
 
+// Route chi khai bao endpoint va chuyen xu ly cho controller
 const router = express.Router();
 
 router.get("/", productController.index);
